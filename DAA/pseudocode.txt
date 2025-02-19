@@ -1,0 +1,21 @@
+Function find_highest_safe_floor():
+    # Phase 1: Exponential Growth Phase
+    floor ← 1
+    while egg does not break at floor:
+        previous_floor ← floor
+        floor ← floor * 2  # Move exponentially
+
+    # Now, h is between previous_floor and floor (i.e., [previous_floor, floor])
+    
+    # Phase 2: Binary Search in this range
+    low ← previous_floor
+    high ← floor
+
+    while low < high:
+        mid ← (low + high) / 2
+        if egg breaks at mid:
+            high ← mid  # The safe floor must be below mid
+        else:
+            low ← mid + 1  # The safe floor is above mid
+
+    return low - 1  # The highest safe floor
