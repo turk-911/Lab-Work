@@ -1,40 +1,69 @@
-CREATE OR REPLACE PROCEDURE Update_Salary_Proc(
-    p_Emp_ID IN NUMBER,
-    p_New_Salary OUT NUMBER,
-    p_Old_Salary OUT NUMBER
+CREATE OR REPLACE PROCEDURE update_marks_for_young_students_proc(
+    p_roll_no IN NUMBER, 
+    p_updated_marks OUT NUMBER, 
+    p_message OUT VARCHAR2
 ) IS
-    v_Date_of_Joining DATE;
-    v_Experience NUMBER;
-    v_Department VARCHAR2(50);
-    
-    e_Employee_Not_Found EXCEPTION;
-BEGIN
+    -- Cursor to fetch student details
+    CURSOR student_cursor IS 
+        SELECT s.dob, m.marks, m.course_id 
+        FROM students s 
+        JOIN marks m ON s.roll_no = m.roll_no 
+        JOIN courses c ON m.course_id = c.course_id 
+        WHERE s.roll_no = p_roll_no AND c.course_name = 'DBMS';
+
+    -- Variables
+    v_dob DATE;
+    v_age NUMBER;
+    v_marks NUMBER;
+    v_course_id NUMBER;
+    v_no_student EXCEPTION; -- User-defined exception
+    v_updated_marks NUMBER;
+
+    -- Function to calculate age
+    FUNCTION calculate_age(p_dob DATE) RETURN NUMBER IS
     BEGIN
-        SELECT Date_of_Joining, Salary, Department 
-        INTO v_Date_of_Joining, p_Old_Salary, v_Department 
-        FROM Employees WHERE Emp_ID = p_Emp_ID;
-    EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            RAISE e_Employee_Not_Found;
+        RETURN TRUNC(MONTHS_BETWEEN(SYSDATE, p_dob) / 12);
     END;
 
-    v_Experience := TRUNC(MONTHS_BETWEEN(SYSDATE, v_Date_of_Joining) / 12);
+BEGIN
+    -- Open cursor and process student details
+    FOR student_rec IN student_cursor LOOP
+        v_dob := student_rec.dob;
+        v_marks := student_rec.marks;
+        v_course_id := student_rec.course_id;
 
-    IF v_Experience < 3 THEN
-        p_New_Salary := p_Old_Salary * 1.10;
-    ELSIF v_Department = 'Sales' AND p_Old_Salary < 50000 THEN
-        p_New_Salary := p_Old_Salary * 1.15;
-    ELSE
-        p_New_Salary := p_Old_Salary;
-    END IF;
+        -- Calculate age
+        v_age := calculate_age(v_dob);
 
-    IF p_New_Salary != p_Old_Salary THEN
-        UPDATE Employees SET Salary = p_New_Salary WHERE Emp_ID = p_Emp_ID;
-        INSERT INTO Salary_History VALUES (p_Emp_ID, p_Old_Salary, p_New_Salary, SYSDATE);
-    END IF;
+        -- Check if age < 18
+        IF v_age < 18 THEN
+            -- Increase marks by 10%
+            v_updated_marks := v_marks * 1.1;
+
+            -- Update marks in the database
+            UPDATE marks 
+            SET marks = v_updated_marks 
+            WHERE roll_no = p_roll_no AND course_id = v_course_id;
+
+            p_updated_marks := v_updated_marks;
+            p_message := 'Marks updated successfully to ' || v_updated_marks;
+        ELSE
+            p_updated_marks := v_marks;
+            p_message := 'Marks not updated as age is 18 or above.';
+        END IF;
+
+        RETURN;
+    END LOOP;
+
+    -- If no student found, raise a user-defined exception
+    RAISE v_no_student;
 
 EXCEPTION
-    WHEN e_Employee_Not_Found THEN
-        DBMS_OUTPUT.PUT_LINE('Error: Employee Not Found!');
-END;
+    WHEN v_no_student THEN
+        p_message := 'Error: Student not found or not enrolled in DBMS.';
+        p_updated_marks := NULL;
+    WHEN OTHERS THEN
+        p_message := 'An error occurred: ' || SQLERRM;
+        p_updated_marks := NULL;
+END update_marks_for_young_students_proc;
 /

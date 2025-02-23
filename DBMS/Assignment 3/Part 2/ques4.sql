@@ -1,7 +1,16 @@
-CREATE OR REPLACE TRIGGER Salary_Update_Trigger
-AFTER UPDATE OF Salary ON Employees
+ALTER TABLE SUPPLIER ADD rating NUMBER DEFAULT 0;
+CREATE OR REPLACE TRIGGER trg_update_supplier_rating
+AFTER UPDATE OF status ON ORDERS
+WHEN (NEW.status = 'SHIPPED')
 BEGIN
-    INSERT INTO Salary_History (Emp_ID, Old_Salary, New_Salary, Update_Date)
-    SELECT Emp_ID, :OLD.Salary, :NEW.Salary, SYSDATE FROM Employees WHERE Emp_ID = :OLD.Emp_ID;
+    UPDATE SUPPLIER s
+    SET s.rating = s.rating + 1
+    WHERE s.suppkey IN (
+        SELECT DISTINCT l.suppkey
+        FROM LINEITEM l
+        WHERE l.orderkey IN (
+            SELECT orderkey FROM ORDERS WHERE status = 'SHIPPED'
+        )
+    );
 END;
 /

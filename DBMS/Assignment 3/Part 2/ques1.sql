@@ -1,29 +1,58 @@
-CREATE OR REPLACE FUNCTION Update_Salary_Fn(p_Emp_ID NUMBER) RETURN NUMBER IS
-    CURSOR emp_cursor IS 
-        SELECT Emp_ID, Date_of_Joining, Salary, Department 
-        FROM Employees WHERE Emp_ID = p_Emp_ID;
-    
-    v_Experience NUMBER;
-    v_New_Salary NUMBER;
+CREATE OR REPLACE FUNCTION update_marks_for_young_students(p_roll_no NUMBER) RETURN VARCHAR2 IS
+    CURSOR student_cursor IS 
+        SELECT s.dob, m.marks, m.course_id 
+        FROM students s 
+        JOIN marks m ON s.roll_no = m.roll_no 
+        JOIN courses c ON m.course_id = c.course_id 
+        WHERE s.roll_no = p_roll_no AND c.course_name = 'DBMS';
+
+    v_dob DATE;
+    v_age NUMBER;
+    v_marks NUMBER;
+    v_updated_marks NUMBER;
+    v_course_id NUMBER;
+    v_message VARCHAR2(100);
+
+    -- Function to calculate age
+    FUNCTION calculate_age(p_dob DATE) RETURN NUMBER IS
+    BEGIN
+        RETURN TRUNC(MONTHS_BETWEEN(SYSDATE, p_dob) / 12);
+    END;
+
 BEGIN
-    FOR emp_rec IN emp_cursor LOOP
-        v_Experience := TRUNC(MONTHS_BETWEEN(SYSDATE, emp_rec.Date_of_Joining) / 12);
+    -- Open cursor and process student details
+    FOR student_rec IN student_cursor LOOP
+        v_dob := student_rec.dob;
+        v_marks := student_rec.marks;
+        v_course_id := student_rec.course_id;
 
-        IF v_Experience < 3 THEN
-            v_New_Salary := emp_rec.Salary * 1.10;
-        ELSIF emp_rec.Department = 'Sales' AND emp_rec.Salary < 50000 THEN
-            v_New_Salary := emp_rec.Salary * 1.15;
+        -- Calculate age
+        v_age := calculate_age(v_dob);
+
+        -- Check if age is less than 18
+        IF v_age < 18 THEN
+            -- Increase marks by 10%
+            v_updated_marks := v_marks * 1.1;
+
+            -- Update marks in the database
+            UPDATE marks 
+            SET marks = v_updated_marks 
+            WHERE roll_no = p_roll_no AND course_id = v_course_id;
+
+            v_message := 'Marks updated to ' || v_updated_marks;
         ELSE
-            v_New_Salary := emp_rec.Salary;
-        END IF;
-
-        -- Update salary
-        IF v_New_Salary != emp_rec.Salary THEN
-            UPDATE Employees SET Salary = v_New_Salary WHERE Emp_ID = emp_rec.Emp_ID;
-            INSERT INTO Salary_History (Emp_ID, Old_Salary, New_Salary, Update_Date)
-            VALUES (emp_rec.Emp_ID, emp_rec.Salary, v_New_Salary, SYSDATE);
+            v_message := 'Marks not updated as age is 18 or above.';
         END IF;
     END LOOP;
 
-    RETURN v_New_Salary;
-END;
+    COMMIT;
+
+    RETURN v_message;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RETURN 'Student not found.';
+    WHEN OTHERS THEN
+        RETURN 'An error occurred: ' || SQLERRM;
+END update_marks_for_young_students;
+/
