@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Get service info from /etc/services
-    service = getservbyname("filexfer", "tcp");
+    service = getservbyname("filetransfer", "tcp");
     if (!service) {
         fprintf(stderr, "ERROR: 'filexfer' service not found in /etc/services\n");
         exit(1);
